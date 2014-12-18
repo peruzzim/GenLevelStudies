@@ -230,7 +230,9 @@ GenLevelAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 	 const GenParticle &p2 = parts->at(i);
 	 if (p2.status()!=1) continue;
 	 if (i==(uint)index) continue;
-	 if (reco::deltaR(p->eta(),p->phi(),p2.eta(),p2.phi())<0.4) sum+=p2.pt();
+	 if (reco::deltaR(p->eta(),p->phi(),p2.eta(),p2.phi())<0.4){
+	   sum+=p2.et(); // should probably be pt(), keep et() for consistency with NTupleProducer
+	 }
        }
        photon_geniso04->push_back(sum);
      }
