@@ -2,4 +2,5 @@
 <use name="FWCore/PluginManager"/>
 <use name="FWCore/ParameterSet"/>
 <use name="SimDataFormats/GeneratorProducts"/>
+<use   name="rootmath"/>
 <flags EDM_PLUGIN="1"/>
