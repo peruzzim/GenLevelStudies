@@ -10,7 +10,12 @@ options.register ('writeAllGenParticles',
                   False,
                   VarParsing.VarParsing.multiplicity.singleton, # singleton or list
                   VarParsing.VarParsing.varType.bool,         # string, int, or float
-                  "write all gen particles on parton collection")
+                  "Write all gen particles on parton collection")
+options.register ('doLHE',
+                  False,
+                  VarParsing.VarParsing.multiplicity.singleton, # singleton or list
+                  VarParsing.VarParsing.varType.bool,         # string, int, or float
+                  "Write weights from LHE")
 options.register ('GlobalTag',
                   'START53_LV4::All',
                   VarParsing.VarParsing.multiplicity.singleton, # singleton or list
@@ -49,6 +54,7 @@ process.analyze = cms.EDAnalyzer("GenLevelAnalyzer",
                                  maxEtaJets = cms.double(4.7),
                                  partonStatusList = cms.vint32(options.partonStatusList),
                                  writeAllGenParticles = cms.bool(options.writeAllGenParticles),
+                                 doLHE = cms.bool(options.doLHE),
                                  OutputFile = cms.string('outfile.root')
                                  )
 

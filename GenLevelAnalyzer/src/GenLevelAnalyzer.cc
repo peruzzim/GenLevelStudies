@@ -39,6 +39,9 @@
 #include "DataFormats/JetReco/interface/GenJet.h"
 #include "DataFormats/JetReco/interface/GenJetCollection.h"
 #include "DataFormats/Math/interface/deltaR.h"
+#include "SimDataFormats/GeneratorProducts/interface/LHEEventProduct.h"
+#include "SimDataFormats/GeneratorProducts/interface/LHERunInfoProduct.h"
+#include "GeneratorInterface/LHEInterface/interface/LHERunInfo.h"
 #include "TLorentzVector.h"
 #include "TVector.h"
 #include "TString.h"
@@ -77,7 +80,7 @@ class GenLevelAnalyzer : public edm::EDAnalyzer {
   void FillPhoton(GenParticleCollection::const_iterator p);
   void FillJet(GenJetCollection::const_iterator j);
   void FillParton(GenParticleCollection::const_iterator p);
-  void FillWeight(const GenEventInfoProduct *info);
+  void FillWeight(const GenEventInfoProduct *info, const LHEEventProduct *LHEptr);
   void FillTree();
   void ClearEvent();
   void Error(TString err);
@@ -96,6 +99,7 @@ class GenLevelAnalyzer : public edm::EDAnalyzer {
   double maxEtaJets_;
   vector<int> partonStatusList_;
   bool writeAllGenParticles;
+  bool doLHE_;
 
   ULong64_t run;
   ULong64_t ls;
@@ -115,7 +119,11 @@ class GenLevelAnalyzer : public edm::EDAnalyzer {
   vector<float> *parton_phi = new vector<float>();
   vector<int>   *parton_id = new vector<int>();
   vector<int>   *parton_status = new vector<int>();
-  vector<float> *weights = new vector<float>();
+  vector<float> *weights_geninfo = new vector<float>();
+  vector<float> *weights_lhe = new vector<float>();
+
+  float weight_geninfo;
+  float weight_lhe;
 
 };
 
@@ -145,6 +153,7 @@ GenLevelAnalyzer::GenLevelAnalyzer(const edm::ParameterSet& iConfig)
   maxEtaJets_ = iConfig.getParameter<double>("maxEtaJets");
   partonStatusList_ = iConfig.getParameter<vector<int> >("partonStatusList");
   writeAllGenParticles = iConfig.getParameter<bool>("writeAllGenParticles");
+  doLHE_ = iConfig.getParameter<bool>("doLHE");
 
   for (vector<int>::const_iterator it = partonStatusList_.begin(); it!=partonStatusList_.end(); it++){
     cout << "Particles with status " << *it << " will be inserted in the parton collection" << endl;
@@ -172,7 +181,11 @@ GenLevelAnalyzer::GenLevelAnalyzer(const edm::ParameterSet& iConfig)
   fTree->Branch("parton_phi",&parton_phi);
   fTree->Branch("parton_id",&parton_id);
   fTree->Branch("parton_status",&parton_status);
-  fTree->Branch("weights",&weights);
+  fTree->Branch("weights_geninfo",&weights_geninfo);
+  fTree->Branch("weights_lhe",&weights_lhe);
+
+  fTree->Branch("weight_geninfo",&weight_geninfo,"weight_geninfo/F");
+  fTree->Branch("weight_lhe",&weight_lhe,"weight_lhe/F");
 
 }
 
@@ -214,6 +227,10 @@ GenLevelAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
    edm::Handle<GenEventInfoProduct> genEvtInfo;
    iEvent.getByLabel("generator", genEvtInfo);
 
+   edm::Handle <LHEEventProduct> LHEevt;
+   if (doLHE_) iEvent.getByLabel("source", LHEevt );
+   const LHEEventProduct *LHEptr = (doLHE_) ? LHEevt.product() : 0;
+
    int index=-1;
    for (GenParticleCollection::const_iterator p = genParticles->begin(); p!=genParticles->end(); p++){
      index++;
@@ -244,7 +261,7 @@ GenLevelAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      FillJet(j);
    }
 
-   FillWeight(genEvtInfo.product());
+   FillWeight(genEvtInfo.product(),LHEptr);
    FillTree();
 
 }
@@ -287,8 +304,20 @@ void GenLevelAnalyzer::FillParton(GenParticleCollection::const_iterator p){
   parton_status->push_back(p->status());
 }
 
-void GenLevelAnalyzer::FillWeight(const GenEventInfoProduct *info){
-  weights->push_back(info->weight());
+void GenLevelAnalyzer::FillWeight(const GenEventInfoProduct *info, const LHEEventProduct *LHEptr){
+
+  weight_geninfo=info->weight();
+  for (uint i=0; i<info->weights().size(); i++) weights_geninfo->push_back(info->weights()[i]);
+
+  if (LHEptr){
+    const lhef::HEPEUP hepeup = LHEptr->hepeup();
+    weight_lhe = hepeup.XWGTUP;
+    for (uint i=0; i<LHEptr->weights().size(); i++){
+      const LHEEventProduct::WGT& wgt = LHEptr->weights().at(i);
+      weights_lhe->push_back(wgt.wgt);
+    }
+  }
+  
 };
 
 void GenLevelAnalyzer::FillTree(){
@@ -310,7 +339,10 @@ void GenLevelAnalyzer::ClearEvent(){
   parton_phi->clear();
   parton_id->clear();
   parton_status->clear();
-  weights->clear();
+  weights_geninfo->clear();
+  weights_lhe->clear();
+  weight_geninfo=1;
+  weight_lhe=1;
 }
 
 void GenLevelAnalyzer::Error(TString err){
