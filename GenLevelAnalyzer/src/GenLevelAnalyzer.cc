@@ -114,6 +114,7 @@ class GenLevelAnalyzer : public edm::EDAnalyzer {
   vector<float> *jet_pt = new vector<float>();
   vector<float> *jet_eta = new vector<float>();
   vector<float> *jet_phi = new vector<float>();
+  vector<float> *jet_energy = new vector<float>();
   vector<float> *parton_pt = new vector<float>();
   vector<float> *parton_eta = new vector<float>();
   vector<float> *parton_phi = new vector<float>();
@@ -176,6 +177,7 @@ GenLevelAnalyzer::GenLevelAnalyzer(const edm::ParameterSet& iConfig)
   fTree->Branch("jet_pt",&jet_pt);
   fTree->Branch("jet_eta",&jet_eta);
   fTree->Branch("jet_phi",&jet_phi);
+  fTree->Branch("jet_energy",&jet_energy);
   fTree->Branch("parton_pt",&parton_pt);
   fTree->Branch("parton_eta",&parton_eta);
   fTree->Branch("parton_phi",&parton_phi);
@@ -293,6 +295,7 @@ void GenLevelAnalyzer::FillJet(GenJetCollection::const_iterator j){
   jet_pt->push_back(j->pt());
   jet_eta->push_back(j->eta());
   jet_phi->push_back(j->phi());
+  jet_energy->push_back(j->energy());
 }
 
 void GenLevelAnalyzer::FillParton(GenParticleCollection::const_iterator p){
@@ -334,6 +337,7 @@ void GenLevelAnalyzer::ClearEvent(){
   jet_pt->clear();
   jet_eta->clear();
   jet_phi->clear();
+  jet_energy->clear();
   parton_pt->clear();
   parton_eta->clear();
   parton_phi->clear();

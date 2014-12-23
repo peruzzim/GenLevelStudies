@@ -48,12 +48,16 @@ public :
    vector<float>   *jet_pt;
    vector<float>   *jet_eta;
    vector<float>   *jet_phi;
+   vector<float>   *jet_energy;
    vector<float>   *parton_pt;
    vector<float>   *parton_eta;
    vector<float>   *parton_phi;
    vector<int>     *parton_id;
    vector<int>     *parton_status;
-   vector<float>   *weights;
+   vector<float>   *weights_geninfo;
+   vector<float>   *weights_lhe;
+   Float_t         weight_geninfo;
+   Float_t         weight_lhe;
 
    // List of branches
    TBranch        *b_run;   //!
@@ -68,14 +72,18 @@ public :
    TBranch        *b_jet_pt;   //!
    TBranch        *b_jet_eta;   //!
    TBranch        *b_jet_phi;   //!
+   TBranch        *b_jet_energy;   //!
    TBranch        *b_parton_pt;   //!
    TBranch        *b_parton_eta;   //!
    TBranch        *b_parton_phi;   //!
    TBranch        *b_parton_id;   //!
    TBranch        *b_parton_status;   //!
-   TBranch        *b_weights;   //!
+   TBranch        *b_weights_geninfo;   //!
+   TBranch        *b_weights_lhe;   //!
+   TBranch        *b_weight_geninfo;   //!
+   TBranch        *b_weight_lhe;   //!
 
-   GenLevelAcceptance(TString filename, float xsection, float sumw);
+   GenLevelAcceptance(TString filename, float xsection, float sumw, TString generator_);
    virtual ~GenLevelAcceptance();
    virtual Int_t    Cut(Long64_t entry);
    virtual Int_t    GetEntry(Long64_t entry);
@@ -95,6 +103,13 @@ public :
      }
    };
    IndexByPt ptComparator;
+
+   typedef enum MyGenEngine {
+     kUndefined,
+     kSHERPA,
+     kaMCatNLO
+   } GenEngine;
+   GenEngine generator;
 
    // functions
 
@@ -137,7 +152,7 @@ public :
 #endif
 
 #ifdef GenLevelAcceptance_cxx
-GenLevelAcceptance::GenLevelAcceptance(TString filename, float xsection, float sumw) : fChain(0), xsec(xsection), sumweights(sumw)
+GenLevelAcceptance::GenLevelAcceptance(TString filename, float xsection, float sumw, TString generator_) : fChain(0), xsec(xsection), sumweights(sumw)
 {
 // if parameter tree is not specified (or zero), connect the file
 // used to generate this class and read the Tree.
@@ -145,6 +160,11 @@ GenLevelAcceptance::GenLevelAcceptance(TString filename, float xsection, float s
   TTree *tree = 0;
   f->GetObject("GenLevelTree",tree);
   assert(tree);
+  generator = kUndefined;
+  if (generator_=="SHERPA") generator = kSHERPA;
+  else if (generator_=="aMCatNLO") generator = kaMCatNLO;
+  assert (generator != kUndefined);
+  if (generator==kaMCatNLO) assert (xsec==1); // set sumweights = lhe_nevents for aMCatNLO
   Init(tree);
   InitOutputTree();
   Loop();
@@ -195,12 +215,14 @@ void GenLevelAcceptance::Init(TTree *tree)
    jet_pt = 0;
    jet_eta = 0;
    jet_phi = 0;
+   jet_energy = 0;
    parton_pt = 0;
    parton_eta = 0;
    parton_phi = 0;
    parton_id = 0;
    parton_status = 0;
-   weights = 0;
+   weights_geninfo = 0;
+   weights_lhe = 0;
    // Set branch addresses and branch pointers
    if (!tree) return;
    fChain = tree;
@@ -219,12 +241,16 @@ void GenLevelAcceptance::Init(TTree *tree)
    fChain->SetBranchAddress("jet_pt", &jet_pt, &b_jet_pt);
    fChain->SetBranchAddress("jet_eta", &jet_eta, &b_jet_eta);
    fChain->SetBranchAddress("jet_phi", &jet_phi, &b_jet_phi);
+   fChain->SetBranchAddress("jet_energy", &jet_energy, &b_jet_energy);
    fChain->SetBranchAddress("parton_pt", &parton_pt, &b_parton_pt);
    fChain->SetBranchAddress("parton_eta", &parton_eta, &b_parton_eta);
    fChain->SetBranchAddress("parton_phi", &parton_phi, &b_parton_phi);
    fChain->SetBranchAddress("parton_id", &parton_id, &b_parton_id);
    fChain->SetBranchAddress("parton_status", &parton_status, &b_parton_status);
-   fChain->SetBranchAddress("weights", &weights, &b_weights);
+   fChain->SetBranchAddress("weights_geninfo", &weights_geninfo, &b_weights_geninfo);
+   fChain->SetBranchAddress("weights_lhe", &weights_lhe, &b_weights_lhe);
+   fChain->SetBranchAddress("weight_geninfo", &weight_geninfo, &b_weight_geninfo);
+   fChain->SetBranchAddress("weight_lhe", &weight_lhe, &b_weight_lhe);
    Notify();
 }
 
@@ -288,7 +314,13 @@ void GenLevelAcceptance::InitOutputTree(){
 
 void GenLevelAcceptance::FillOutput(vector<uint> &passingpho, vector<uint> &passingjet){
 
-  event_luminormfactor = event_base_luminormfactor*weights->at(0); // TO BE FIXED FOR aMC@NLO
+  if (generator==kSHERPA){
+    event_luminormfactor = event_base_luminormfactor*weight_geninfo;
+  }
+  else if (generator==kaMCatNLO){
+    event_luminormfactor = event_base_luminormfactor*weight_lhe;
+  }
+  else assert(false);
 
   tree_gen_in_acc = (passingpho.size()>=2);
 
@@ -305,6 +337,7 @@ void GenLevelAcceptance::FillOutput(vector<uint> &passingpho, vector<uint> &pass
     jet_GEN_pt[index]=jet_pt->at(*it);
     jet_GEN_eta[index]=jet_eta->at(*it);
     jet_GEN_phi[index]=jet_phi->at(*it);
+    jet_GEN_energy[index]=jet_energy->at(*it);
     n_GEN_jets++;
     index++;
   }
@@ -312,6 +345,7 @@ void GenLevelAcceptance::FillOutput(vector<uint> &passingpho, vector<uint> &pass
     jet_GEN_pt[index] =-999;
     jet_GEN_eta[index]=-999;
     jet_GEN_phi[index]=-999;
+    jet_GEN_energy[index]=-999;
     index++;
   }
 
