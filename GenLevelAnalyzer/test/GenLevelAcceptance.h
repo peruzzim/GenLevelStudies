@@ -129,6 +129,8 @@ public :
    void InitOutputTree();
 
    Float_t event_luminormfactor;
+   vector<float> *event_luminormfactor_scalevar;
+   vector<float> *event_luminormfactor_pdfvar;
    Float_t event_base_luminormfactor;
    Float_t event_Kfactor;
    Float_t event_weight;
@@ -142,6 +144,7 @@ public :
    Float_t jet_GEN_pt[global_maxN_jets];
    Float_t jet_GEN_eta[global_maxN_jets];
    Float_t jet_GEN_phi[global_maxN_jets];
+   Float_t jet_GEN_energy[global_maxN_jets];
 
    Bool_t tree_gen_in_acc;
    Bool_t tree_reco_in_acc;
@@ -286,7 +289,12 @@ void GenLevelAcceptance::InitOutputTree(){
   fOutput->cd();
   lighttree = new TTree("LightTreeGenReco_Default","LightTreeGenReco_Default");
 
+  event_luminormfactor_scalevar = new vector<float>();
+  event_luminormfactor_pdfvar   = new vector<float>();
+
   lighttree->Branch("event_luminormfactor",&event_luminormfactor,"event_luminormfactor/F");
+  lighttree->Branch("event_luminormfactor_scalevar",&event_luminormfactor_scalevar);
+  lighttree->Branch("event_luminormfactor_pdfvar",&event_luminormfactor_pdfvar);
   lighttree->Branch("event_Kfactor",&event_Kfactor,"event_Kfactor/F");
   lighttree->Branch("event_weight",&event_weight,"event_weight/F");
   lighttree->Branch("pholead_GEN_pt",&pholead_GEN_pt,"pholead_GEN_pt/F");
@@ -299,6 +307,7 @@ void GenLevelAcceptance::InitOutputTree(){
   lighttree->Branch("jet_GEN_pt",&jet_GEN_pt,"jet_GEN_pt[n_GEN_jets]/F");
   lighttree->Branch("jet_GEN_eta",&jet_GEN_eta,"jet_GEN_eta[n_GEN_jets]/F");
   lighttree->Branch("jet_GEN_phi",&jet_GEN_phi,"jet_GEN_phi[n_GEN_jets]/F");
+  lighttree->Branch("jet_GEN_energy",&jet_GEN_energy,"jet_GEN_energy[n_GEN_jets]/F");
   lighttree->Branch("gen_in_acc",&tree_gen_in_acc,"gen_in_acc/O");
   lighttree->Branch("reco_in_acc",&tree_reco_in_acc,"reco_in_acc/O");
   lighttree->Branch("matched",&tree_matched,"matched/O");
@@ -314,11 +323,16 @@ void GenLevelAcceptance::InitOutputTree(){
 
 void GenLevelAcceptance::FillOutput(vector<uint> &passingpho, vector<uint> &passingjet){
 
+  event_luminormfactor_scalevar->clear();
+  event_luminormfactor_pdfvar->clear();
+
   if (generator==kSHERPA){
     event_luminormfactor = event_base_luminormfactor*weight_geninfo;
   }
   else if (generator==kaMCatNLO){
     event_luminormfactor = event_base_luminormfactor*weight_lhe;
+    for (uint i=0; i<8; i++) event_luminormfactor_scalevar->push_back(event_base_luminormfactor*weights_lhe->at(i+1));
+    for (uint i=0; i<52; i++) event_luminormfactor_pdfvar->push_back(event_base_luminormfactor*weights_lhe->at(i+9));
   }
   else assert(false);
 
